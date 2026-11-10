@@ -130,3 +130,16 @@ while (!shutdown) {
 
 - **可行**，且比直接魔改 WebRTC 更干净：解耦出 RTP 后，得到的是一个"节流器+调度器"通用组件，`flow_id→(ip,port)` 映射让它天生支持多目标。
 - 唯一需要承担的设计决定：**目标速率的管理方式**（固定/外部喂入）和 **MTU 约定**（调用方保证包不超长）。
+
+1.入队设计
+支持多流入队，每个流在入队时设置一个流特有的id，每个流id都有自己独立的队列，如果传入的流id不存在就创建队列，如果存在则找到这个队列指针入队。
+
+核心类：
+MediaPacket
+media_packet.hpp中的类，用户传入网络包后会先封装为这个类，包括:包类型，载荷写入vector，流id。每个包都有自己的MediaPacket
+QueuedPacket
+pacer_packet_queue.hpp中的类,将封装好的MediaPacket包封装进这个类，MediaPacket内容，入队时间，保存入队时间队列的迭代器，也是每个包都有自己的QueuedPacket类
+StreamQueue
+pacer_packet_queue.hpp中的类，每个流对应一个StreamQueue，pacer支持多个流，每个流含有多个包：网络包，填充包，重传包等。每个包都有自己的MediaPacket队列，放在StreamQueue类中
+
+
