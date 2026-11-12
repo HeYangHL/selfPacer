@@ -1,5 +1,7 @@
 #include "send_packet_to_queue.hpp"
 
+#include "delay_task.hpp"
+
 int PacketToQueue::SendToQueue(uint64_t stream_id, const uint8_t* payload, size_t size)
 {
     if (controller_ == nullptr) {
@@ -16,14 +18,16 @@ int PacketToQueue::SendToQueue(uint64_t stream_id, const uint8_t* payload, size_
         return -2;
     }
 
-    // 包入队
-    PacerController::EnqueueResult result =
-        controller_->EnqueuePacket(std::move(packet));
+    // 包入队：有定时层时走它的线程安全入口（入队成功会自动唤醒发送线程）
+    PacerController::EnqueueResult result;
+    if (waker_ != nullptr) {
+        result = waker_->Enqueue(std::move(packet));
+    } else {
+        result = controller_->EnqueuePacket(std::move(packet));
+    }
+
     if (result == PacerController::EnqueueResult::kDroppedBackpressure) {
         return -1;
     }
-    //启动定时器
-    
-
     return 0;
 }
